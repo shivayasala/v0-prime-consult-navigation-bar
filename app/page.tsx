@@ -1,9 +1,33 @@
 "use client"
 
 import { useState } from "react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
+
+const contactFormSchema = z.object({
+  fullName: z.string().min(2, "Name must be at least 2 characters").max(100, "Name is too long"),
+  email: z.string().email("Please enter a valid email address"),
+  phone: z.string().optional(),
+  message: z.string().min(10, "Message must be at least 10 characters").max(1000, "Message is too long"),
+  privacy: z.boolean().refine((val) => val === true, "You must agree to the privacy policy"),
+})
+
+type ContactFormData = z.infer<typeof contactFormSchema>
 
 export default function Home() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitSuccess, setSubmitSuccess] = useState(false)
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+  } = useForm<ContactFormData>({
+    resolver: zodResolver(contactFormSchema),
+  })
 
   const handleScrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId)
@@ -18,6 +42,26 @@ export default function Home() {
     setMobileMenuOpen(false)
   }
 
+  const onSubmitForm = async (data: ContactFormData) => {
+    setIsSubmitting(true)
+    try {
+      // In production, this would send to a secure API endpoint
+      // For now, we'll simulate a successful submission
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+
+      setSubmitSuccess(true)
+      reset()
+
+      setTimeout(() => {
+        setSubmitSuccess(false)
+      }, 5000)
+    } catch (error) {
+      console.error("Form submission error:", error)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   return (
     <main className="min-h-screen bg-black">
       {/* Navigation Bar Section */}
@@ -28,8 +72,9 @@ export default function Home() {
             <button
               onClick={handleScrollToTop}
               className="flex items-center space-x-3 hover:scale-105 transition-transform duration-300"
+              aria-label="Go to top"
             >
-              <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center shadow-lg">
+              <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-lg flex items-center justify-center shadow-lg shadow-emerald-500/30">
                 <span className="text-white font-bold text-xl">P</span>
               </div>
               <span className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">
@@ -62,7 +107,7 @@ export default function Home() {
               </button>
               <button
                 onClick={() => handleScrollToSection("contact")}
-                className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg shadow-lg hover:shadow-emerald-500/50 hover:scale-105 transition-all duration-300"
+                className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 hover:scale-105 transition-all duration-300"
               >
                 Contact
               </button>
@@ -70,9 +115,11 @@ export default function Home() {
 
             {/* Mobile Menu Button - Updated colors */}
             <button
+              id="mobileMenuBtn"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden p-2 rounded-lg hover:bg-gray-800 transition-colors duration-300"
               aria-label="Toggle menu"
+              aria-expanded={mobileMenuOpen}
             >
               {!mobileMenuOpen ? (
                 <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -110,7 +157,7 @@ export default function Home() {
                 </button>
                 <button
                   onClick={() => handleScrollToSection("contact")}
-                  className="text-white bg-gradient-to-r from-emerald-500 to-teal-500 font-semibold px-4 py-2 rounded-lg shadow-lg hover:shadow-emerald-500/50 transition-all duration-300"
+                  className="text-white bg-gradient-to-r from-emerald-500 to-teal-500 font-semibold px-4 py-2 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
                 >
                   Contact
                 </button>
@@ -565,26 +612,29 @@ export default function Home() {
           {/* Contact Form Container */}
           <div className="max-w-2xl mx-auto">
             <div className="bg-gray-800 border border-gray-700 rounded-3xl shadow-2xl p-8 md:p-12">
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  alert("Thank you for your message! Our team will contact you within 24 hours.")
-                }}
-                className="space-y-6"
-              >
+              {submitSuccess && (
+                <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
+                  <p className="text-emerald-400 font-semibold">
+                    Thank you for your message! Our team will contact you within 24 hours.
+                  </p>
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit(onSubmitForm)} className="space-y-6">
                 {/* Full Name Field */}
                 <div>
                   <label htmlFor="fullName" className="block text-sm font-semibold text-gray-300 mb-2">
                     Full Name *
                   </label>
                   <input
+                    {...register("fullName")}
                     type="text"
                     id="fullName"
-                    name="fullName"
-                    required
                     className="w-full px-4 py-3.5 bg-gray-900 border-2 border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all duration-300"
                     placeholder="Enter your full name"
+                    disabled={isSubmitting}
                   />
+                  {errors.fullName && <p className="mt-1 text-sm text-red-400">{errors.fullName.message}</p>}
                 </div>
 
                 {/* Email Field */}
@@ -593,13 +643,14 @@ export default function Home() {
                     Email Address *
                   </label>
                   <input
+                    {...register("email")}
                     type="email"
                     id="email"
-                    name="email"
-                    required
                     className="w-full px-4 py-3.5 bg-gray-900 border-2 border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all duration-300"
                     placeholder="you@company.com"
+                    disabled={isSubmitting}
                   />
+                  {errors.email && <p className="mt-1 text-sm text-red-400">{errors.email.message}</p>}
                 </div>
 
                 {/* Phone Number Field */}
@@ -608,11 +659,12 @@ export default function Home() {
                     Phone Number
                   </label>
                   <input
+                    {...register("phone")}
                     type="tel"
                     id="phone"
-                    name="phone"
                     className="w-full px-4 py-3.5 bg-gray-900 border-2 border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all duration-300"
                     placeholder="+91 (XXX) XXX-XXXX"
+                    disabled={isSubmitting}
                   />
                 </div>
 
@@ -622,36 +674,39 @@ export default function Home() {
                     Message *
                   </label>
                   <textarea
+                    {...register("message")}
                     id="message"
-                    name="message"
                     rows={5}
-                    required
                     className="w-full px-4 py-3.5 bg-gray-900 border-2 border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all duration-300 resize-none"
                     placeholder="Tell us about your business needs and challenges..."
+                    disabled={isSubmitting}
                   ></textarea>
+                  {errors.message && <p className="mt-1 text-sm text-red-400">{errors.message.message}</p>}
                 </div>
 
                 {/* Privacy Notice */}
                 <div className="flex items-start space-x-3">
                   <input
+                    {...register("privacy")}
                     type="checkbox"
                     id="privacy"
-                    name="privacy"
-                    required
                     className="mt-1 w-4 h-4 text-emerald-500 bg-gray-900 border-gray-700 rounded focus:ring-emerald-500"
+                    disabled={isSubmitting}
                   />
                   <label htmlFor="privacy" className="text-sm text-gray-400">
                     I agree to the privacy policy and consent to being contacted by PrimeConsult regarding my inquiry. *
                   </label>
                 </div>
+                {errors.privacy && <p className="text-sm text-red-400">{errors.privacy.message}</p>}
 
                 {/* Submit Button */}
                 <button
                   type="submit"
-                  className="w-full group relative px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-xl shadow-xl hover:shadow-2xl hover:shadow-emerald-500/40 transition-all duration-300 hover:scale-[1.02] overflow-hidden"
+                  disabled={isSubmitting}
+                  className="w-full group relative px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-xl shadow-xl hover:shadow-2xl hover:shadow-emerald-500/40 transition-all duration-300 hover:scale-[1.02] overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span className="relative z-10 flex items-center justify-center">
-                    Send Message
+                    {isSubmitting ? "Sending..." : "Send Message"}
                     <svg
                       className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform duration-300"
                       fill="none"
